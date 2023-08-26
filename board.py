@@ -7,17 +7,19 @@ import random
 
 class Board:
 
-    def __init__(self):
-        self.board = [[0, 1, 0],
-                      [0, 1, 0],
-                      [1, 1, 1]]
+    def __init__(self, board=None):
+        if board is None:
+            self.board = [[1, 0, 1, 0],
+                      [1, 0, 1, 0],
+                      [1, 1, 1, 1],
+                      [1, 1, 1, 1]]
 
-        self.rp = [(0, 1), (1, 1), (2, 0), (2, 1), (2, 2)]
+        yv, xv = torch.where(torch.Tensor(self.board) == 1)
+        self.rp = list(zip(yv.tolist(), xv.tolist()))
         tp = random.sample(self.rp, k=2)
         self.board[tp[0][0]][tp[0][1]] = 2
         self.board[tp[1][0]][tp[1][1]] = 3
         self.actions = {}
-
 
         self.actions[0] = lambda x, y: None
 
@@ -25,16 +27,17 @@ class Board:
 
         al = len(self.actions)
         for i, move in enumerate(move_matrix):
-            self.actions[i+al] = lambda x, y, move=move: self.move(x, (x[0] + move[0], x[1] + move[1]))
+            self.actions[i + al] = lambda x, y, move=move: self.move(x, (x[0] + move[0], x[1] + move[1]))
 
         al = len(self.actions)
         for i, rp in enumerate(self.rp):
-            self.actions[i+al] = lambda x, y, rp=rp: self.push(x, y, rp)
+            self.actions[i + al] = lambda x, y, rp=rp: self.push(x, y, rp)
 
-        self.actions[len(self.actions)] = lambda x, y: self.throw_mw(x, (1, 1))
+        self.actions[len(self.actions)] = lambda x, y: self.throw_mw(x, (1, 0))
+        self.actions[len(self.actions)] = lambda x, y: self.throw_mw(x, (1, 2))
 
     def move(self, oldp, np):
-        if np[0] < 0 or np[0] > len(self.board)-1 or np[1] < 0 or np[1] > len(self.board[0])-1:
+        if np[0] < 0 or np[0] > len(self.board) - 1 or np[1] < 0 or np[1] > len(self.board[0]) - 1:
             return
         if self.board[np[0]][np[1]] != 1:
             return
@@ -91,7 +94,7 @@ class Board:
         return new_board
 
     def is_win(self):
-        return self.board[0][1] == 3 and self.board[1][1] == 4
+        return self.board[0][0] == 3 and self.board[1][0] == 4 or self.board[0][2] == 3 and self.board[1][2] == 4
 
     def to_tensor(self):
         return torch.flatten(nn.functional.one_hot(torch.LongTensor(self.board), 5).float())
@@ -99,10 +102,7 @@ class Board:
 
 if __name__ == '__main__':
     board = Board()
-    board.board = [[0, 3, 0],
-                   [0, 1, 0],
-                   [2, 1, 1]]
-    print(board)
-    board.do_action((0, 0), (1, 1), 14)
-    print(board)
     print(board.get_total_actions())
+
+
+
