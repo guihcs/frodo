@@ -9,10 +9,10 @@ class Board:
 
     def __init__(self, board=None):
         if board is None:
-            self.board = [[1, 0, 1, 0],
-                      [1, 0, 1, 0],
-                      [1, 1, 1, 1],
-                      [1, 1, 1, 1]]
+            self.board = [[ 0, 1, 0],
+                      [ 0, 1, 0],
+                      [ 1, 1, 1],
+                      ]
 
         yv, xv = torch.where(torch.Tensor(self.board) == 1)
         self.rp = list(zip(yv.tolist(), xv.tolist()))
@@ -33,8 +33,8 @@ class Board:
         for i, rp in enumerate(self.rp):
             self.actions[i + al] = lambda x, y, rp=rp: self.push(x, y, rp)
 
-        self.actions[len(self.actions)] = lambda x, y: self.throw_mw(x, (1, 0))
-        self.actions[len(self.actions)] = lambda x, y: self.throw_mw(x, (1, 2))
+        self.actions[len(self.actions)] = lambda x, y: self.throw_mw(x, (1, 1))
+        # self.actions[len(self.actions)] = lambda x, y: self.throw_mw(x, (1, 2))
 
     def move(self, oldp, np):
         if np[0] < 0 or np[0] > len(self.board) - 1 or np[1] < 0 or np[1] > len(self.board[0]) - 1:
@@ -94,7 +94,7 @@ class Board:
         return new_board
 
     def is_win(self):
-        return self.board[0][0] == 3 and self.board[1][0] == 4 or self.board[0][2] == 3 and self.board[1][2] == 4
+        return self.board[0][1] == 3 and self.board[1][1] == 4
 
     def to_tensor(self):
         return torch.flatten(nn.functional.one_hot(torch.LongTensor(self.board), 5).float())
