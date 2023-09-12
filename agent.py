@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 class Agent(nn.Module):
@@ -28,7 +29,7 @@ class Agent(nn.Module):
             nn.Softmax(dim=-1)
         )
 
-    def forward(self, x):
-        h = self.seq(x)
+    def forward(self, x, a):
+        h = self.seq(torch.cat([x, a], dim=-1))
         return self.vl(h), self.pl(h)
 
