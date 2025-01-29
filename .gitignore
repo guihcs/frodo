@@ -2,3 +2,5 @@ venv
 *.pt
 .idea
 __pycache__
+models/
+.ipynb_checkpoints
