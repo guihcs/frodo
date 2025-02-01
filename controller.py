@@ -6,6 +6,7 @@ class ActionController:
     def __init__(self, board: Board2):
         self.board = board
         self.push_cells = [(0, 0), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (3, 0), (3, 1), (3, 2), (3, 3)]
+        self.todd_push_cells = [(1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)]
         self.mw_cells = [(1, 0), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (3, 0), (3, 1), (3, 2), (3, 3)]
         self.move_directions = [(-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1)]
 
@@ -40,11 +41,11 @@ class ActionController:
         elif n < len(self.move_directions) + len(self.push_cells):
             dy, dx = self.push_cells[n - len(self.move_directions) - 1]
             self.push_enemy(dy, dx)
-        elif n < len(self.move_directions) + len(self.push_cells) * 2:
-            dy, dx = self.push_cells[n - len(self.move_directions) - len(self.push_cells) - 1]
+        elif n < len(self.move_directions) + len(self.push_cells) + len(self.todd_push_cells):
+            dy, dx = self.todd_push_cells[n - len(self.move_directions) - len(self.push_cells) - 1]
             self.push_todd(dy, dx)
         else:
-            dy, dx = self.mw_cells[n - len(self.move_directions) - len(self.push_cells) * 2 - 1]
+            dy, dx = self.mw_cells[n - len(self.move_directions) - len(self.push_cells) - len(self.todd_push_cells) - 1]
             self.throw_mw(dy, dx)
 
     def explain_action(self, n):
@@ -56,12 +57,35 @@ class ActionController:
         elif n < len(self.move_directions) + len(self.push_cells):
             dy, dx = self.push_cells[n - len(self.move_directions) - 1]
             return f"Push enemy {dy} {dx}"
-        elif n < len(self.move_directions) + len(self.push_cells) * 2:
-            dy, dx = self.push_cells[n - len(self.move_directions) - len(self.push_cells) - 1]
+        elif n < len(self.move_directions) + len(self.push_cells) + len(self.todd_push_cells):
+            dy, dx = self.todd_push_cells[n - len(self.move_directions) - len(self.push_cells) - 1]
             return f"Push Todd {dy} {dx}"
         else:
-            dy, dx = self.mw_cells[n - len(self.move_directions) - len(self.push_cells) * 2 - 1]
+            dy, dx = self.mw_cells[n - len(self.move_directions) - len(self.push_cells) - len(self.todd_push_cells) - 1]
             return f"Throw MW {dy} {dx}"
 
     def get_action_space(self):
-        return len(self.move_directions) + len(self.push_cells) * 2 + len(self.mw_cells)
+        return len(self.move_directions) + len(self.push_cells) + len(self.todd_push_cells) + len(self.mw_cells)
+
+    def get_available_moves(self):
+        moves = []
+        py, px = self.board.get_player_position()
+        for n in range(self.get_action_space()):
+            if n == 0:
+                moves.append(0)
+            if n < len(self.move_directions):
+                dy, dx = self.move_directions[n - 1]
+
+                if self.board.can_move(py + dy, px + dx):
+                    moves.append(n)
+            elif n < len(self.move_directions) + len(self.push_cells):
+                moves.append(n)
+            elif n < len(self.move_directions) + len(self.push_cells) + len(self.todd_push_cells):
+                moves.append(n)
+            else:
+                dy, dx = self.mw_cells[
+                    n - len(self.move_directions) - len(self.push_cells) - len(self.todd_push_cells) - 1]
+                if self.board.can_throw_mw(py.item(), px.item(), dy, dx):
+                    moves.append(n)
+
+        return moves

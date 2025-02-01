@@ -77,24 +77,24 @@ class Board2:
         return self.grid[TODD_LAYER, :, :].nonzero().squeeze(0)
 
     def set_player(self, y, x):
-        self.grid[PLAYER_LAYER, :, :] = 0
+        self.grid[PLAYER_LAYER].zero_()
         self.grid[PLAYER_LAYER, y, x] = 1
 
     def set_enemy(self, y, x):
-        self.grid[ENEMY_LAYER, :, :] = 0
+        self.grid[ENEMY_LAYER].zero_()
         self.grid[ENEMY_LAYER, y, x] = 1
 
     def set_todd(self, y, x):
-        self.grid[TODD_LAYER, :, :] = 0
+        self.grid[TODD_LAYER].zero_()
         self.grid[TODD_LAYER, y, x] = 1
 
     def clear_short_push(self):
-        self.grid[SHORT_ENEMY_PUSH_LAYER, :, :] = 0
-        self.grid[SHORT_TODD_PUSH_LAYER, :, :] = 0
+        self.grid[SHORT_ENEMY_PUSH_LAYER].zero_()
+        self.grid[SHORT_TODD_PUSH_LAYER].zero_()
 
     def clear_long_push(self):
-        self.grid[LONG_ENEMY_PUSH_LAYER, :, :] = 0
-        self.grid[LONG_TODD_PUSH_LAYER, :, :] = 0
+        self.grid[LONG_ENEMY_PUSH_LAYER].zero_()
+        self.grid[LONG_TODD_PUSH_LAYER].zero_()
 
     def reset_push(self):
         self.clear_short_push()
@@ -126,8 +126,8 @@ class Board2:
         self.move_player(y, x)
 
     def is_cell_empty(self, y, x):
-        return not self.grid[FLOOR_LAYER, y, x].any() and not self.grid[TODD_LAYER, y, x].any() and not self.grid[PLAYER_LAYER, y, x].any() and not \
-        self.grid[ENEMY_LAYER, y, x].any() and not self.grid[0, y, x].any()
+        layers = [FLOOR_LAYER, TODD_LAYER, PLAYER_LAYER, ENEMY_LAYER, MW_LAYER]
+        return not torch.any(self.grid[layers, y, x])
 
     def get_empty_neighbours(self, y, x):
         neighbours = []
@@ -250,22 +250,36 @@ class Board2:
         self.grid[MW_LAYER, self.grid[MW_LAYER, :, :] < 0] = 0
 
     def shortest_path(self, y1, x1, y2, x2, max_steps=100):
-        start = (y1, x1)
-        end = (y2, x2)
+        start, end = (y1, x1), (y2, x2)
         queue = []
-        heappush(queue, (0, (0, *start, [start])))
+        heappush(queue, (0, 0, y1, x1))  # (total cost, movement cost, y, x)
+        came_from = {}  # Stores backpointers for path reconstruction
+        visited = set()
 
         for _ in range(max_steps):
             if not queue:
                 return []
-            c, (oc, y, x, p) = heappop(queue)
+
+            _, oc, y, x = heappop(queue)
+            if (y, x) in visited:
+                continue
+            visited.add((y, x))
+
             if sqr_distance(y, end[0], x, end[1]) < 2:
-                return p[1:]
+                # Reconstruct path from `came_from`
+                path = []
+                while (y, x) != start:
+                    path.append((y, x))
+                    y, x = came_from[(y, x)]
+                return path[::-1]  # Reverse to get correct order
 
             for ny, nx in self.get_empty_neighbours(y, x):
+                if (ny, nx) in visited:
+                    continue
                 nc = 1 if sqr_distance(y, ny, x, nx) < 2 else 6
                 cost = oc + nc + sqr_distance(ny, end[0], nx, end[1])
-                heappush(queue, (cost, (c + nc, ny, nx, p + [(ny, nx)])))
+                heappush(queue, (cost, oc + nc, ny, nx))
+                came_from[(ny, nx)] = (y, x)
 
         return []
 
@@ -275,6 +289,8 @@ class Board2:
         new_board.current_todd = self.current_todd
         new_board.current_player_mw = self.current_player_mw
         new_board.current_enemy_mw = self.current_enemy_mw
+        new_board.enemy_push_grid = self.enemy_push_grid.clone()
+
         return new_board
 
     def swap_enemy(self):
@@ -285,18 +301,21 @@ class Board2:
 
         self.current_player_mw, self.current_enemy_mw = self.current_enemy_mw, self.current_player_mw
 
-        grid = self.grid.clone()
-        og = self.enemy_push_grid.clone()
+        grid = self.grid
+        enemy_push_grid = self.enemy_push_grid
 
-        self.enemy_push_grid[SHORT_ENEMY_PUSH_LAYER_ENEMY, :, :] = grid[SHORT_ENEMY_PUSH_LAYER, :, :]
-        self.enemy_push_grid[LONG_ENEMY_PUSH_LAYER_ENEMY, :, :] = grid[LONG_ENEMY_PUSH_LAYER, :, :]
-        self.enemy_push_grid[SHORT_TODD_PUSH_LAYER_ENEMY, :, :] = grid[SHORT_TODD_PUSH_LAYER, :, :]
-        self.enemy_push_grid[LONG_TODD_PUSH_LAYER_ENEMY, :, :] = grid[LONG_TODD_PUSH_LAYER, :, :]
+        layers = [
+            (SHORT_ENEMY_PUSH_LAYER, SHORT_ENEMY_PUSH_LAYER_ENEMY),
+            (LONG_ENEMY_PUSH_LAYER, LONG_ENEMY_PUSH_LAYER_ENEMY),
+            (SHORT_TODD_PUSH_LAYER, SHORT_TODD_PUSH_LAYER_ENEMY),
+            (LONG_TODD_PUSH_LAYER, LONG_TODD_PUSH_LAYER_ENEMY)
+        ]
 
-        self.grid[SHORT_ENEMY_PUSH_LAYER, :, :] = og[SHORT_ENEMY_PUSH_LAYER_ENEMY, :, :]
-        self.grid[LONG_ENEMY_PUSH_LAYER, :, :] = og[LONG_ENEMY_PUSH_LAYER_ENEMY, :, :]
-        self.grid[SHORT_TODD_PUSH_LAYER, :, :] = og[SHORT_TODD_PUSH_LAYER_ENEMY, :, :]
-        self.grid[LONG_TODD_PUSH_LAYER, :, :] = og[LONG_TODD_PUSH_LAYER_ENEMY, :, :]
+        # Swap grid layers efficiently
+        for player_layer, enemy_layer in layers:
+            grid[player_layer, :, :], enemy_push_grid[enemy_layer, :, :] = (
+                enemy_push_grid[enemy_layer, :, :].clone(), grid[player_layer, :, :].clone()
+            )
 
     def step(self, time_step=200, walk_time=200):
         self.current_todd -= time_step
@@ -492,3 +511,16 @@ class Board2:
                             rm[j][k] = colored('.', 'white')
 
         return '\n'.join(['  '.join(r) for r in rm])
+
+
+    def __lt__(self, other):
+        return 0
+
+    def __eq__(self, other):
+        if not isinstance(other, Board2):
+            return False
+
+        return torch.equal(self.grid, other.grid) and torch.equal(self.enemy_push_grid, other.enemy_push_grid) and self.current_todd == other.current_todd and self.current_player_mw == other.current_player_mw and self.current_enemy_mw == other.current_enemy_mw
+
+    def __hash__(self):
+        return hash(str(self.grid) + str(self.enemy_push_grid) + str(self.current_todd) + str(self.current_player_mw) + str(self.current_enemy_mw))
