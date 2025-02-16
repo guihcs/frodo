@@ -1,4 +1,5 @@
 venv
+.venv
 *.pt
 .idea
 __pycache__

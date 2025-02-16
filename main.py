@@ -2,12 +2,14 @@ from typing import Union
 import math
 from fastapi import FastAPI
 from agent import Agent, bae
-from board import Board
+from board3 import Board3
+from controller3 import ActionController
+from mcts import NT
 import torch
-from game_utils import get_best_action
 import torch.nn as nn
-from tree import Tree
+import itertools
 import time
+from mcts import search
 app = FastAPI()
 
 
@@ -18,48 +20,35 @@ max_iter = 5000
 
 
 
-agent = Agent(Board().to_tensor().shape[0], 60, Board().get_total_actions(), max_len=board_stack, nhead=4, num_layers=1)
-agent.load_state_dict(torch.load('models/g200.pt'))
-agent.eval()
+# agent = Agent(Board().to_tensor().shape[0], 60, Board().get_total_actions(), max_len=board_stack, nhead=4, num_layers=1)
+# agent.load_state_dict(torch.load('models/g200.pt'))
+# agent.eval()
 # agent.cuda(0)
 
 bs = None
 
-board = Board()
+# board = Board()
 
 last_time = time.time()
 
 @app.post("/")
 def get_action(data: dict):
-    global bs
-    global board
-    global last_time
-    # print(time.time() - last_time)
-    last_time = time.time()
+    board_data = data['board']
+    # timers = list(itertools.batched(data['mw_timers'], 4))
+    # push_timers = data['pushTimers']
+    # push_location = data['pushLocations']
+    history = [(list(itertools.batched(x, 4)), y) for x, y in data['history']]
+    bc = list(itertools.batched(board_data, 4))
+    board = ActionController.board_from_data(bc, history, time_step=1000)
+    board.walk_time = 500
+    controller = ActionController(board)
 
-
-    board_data = torch.LongTensor(data['board']).reshape((3, 4)).tolist()
-    board.board = board_data
-    # print(board.board)
-    # print(board.pushs)
-
-    if board.is_win() or board.is_loss():
+    if controller.is_win() or controller.is_lose() or controller.is_block():
         return {'action': -1}
 
-    if bs is None:
-        bs = board.to_tensor().unsqueeze(0).repeat(board_stack, 1)
+    path = search(board, 8000)
+    if path is None:
+        print('no path')
+        return {'action': -1}
 
-
-    action, _ = get_best_action(board, bs, agent, timestep=time_step, max_depth=max_depth, max_iter=max_iter)
-    be = board.to_tensor().unsqueeze(0)
-    bs = torch.cat([bs[1:], be])
-
-    board.do_action(action)
-    board.step(time_step)
-    # print(action)
-    # print(board.board)
-    # print(board.pushs)
-
-
-    return {'action': action}
-
+    return {'action': path[0][1]}
