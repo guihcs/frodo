@@ -12,40 +12,20 @@ class ActionController:
         self.board = board
 
     @staticmethod
-    def board_from_data(data, history, time_step=200):
+    def board_from_data(data):
         b = Board3()
         b.mw = set()
-        c = ActionController(b)
-
-        if len(history) > 0:
-            fb = history[0][0]
-
-            for i in range(4):
-                for j in range(4):
-                    if fb[i][j] == 1:
-                        b.set_player(i, j)
-                    elif fb[i][j] == 2:
-                        b.set_enemy(i, j)
-                    elif fb[i][j] == 3:
-                        b.set_todd(i, j)
-                    elif fb[i][j] == 4:
-                        b.mw.add((i, j))
-
-            for _, a in history:
-                c.execute_action(a)
-                b.step(time_step)
-
-            b.mw = set()
 
         for i in range(4):
             for j in range(4):
-                if data[i][j] == 1:
+                n = i * 4 + j
+                if data[n] == 1:
                     b.set_player(i, j)
-                elif data[i][j] == 2:
+                elif data[n] == 2:
                     b.set_enemy(i, j)
-                elif data[i][j] == 3:
+                elif data[n] == 3:
                     b.set_todd(i, j)
-                elif data[i][j] == 4:
+                elif data[n] == 4:
                     b.mw.add((i, j))
 
         return b

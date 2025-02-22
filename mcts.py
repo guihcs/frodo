@@ -88,7 +88,7 @@ class NT:
             return -self.v
 
         cs = sum([x.n for x in self.children])
-        sv = max(self.children, key=lambda x: x.v + 1.5 * x.p * math.sqrt(cs / (x.n + 1)))
+        sv = max(self.children, key=lambda x: x.value + 1.5 * x.prob * math.sqrt(cs / (x.n + 1)))
         res = sv.search(fp)
         self.v = (self.v * self.n + res) / (self.n + 1)
         self.n += 1

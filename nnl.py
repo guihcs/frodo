@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from board3 import Board3
-
+from controller3 import ActionController
 
 
 def to_emb(board: Board3):
@@ -45,6 +45,14 @@ def gather_history(hist, c=3):
         res.append(line[::-1])
 
     return res
+
+def emb_mem(mem):
+    hl = []
+    for b, a in mem:
+        board_embedding = to_emb(b)
+        action_embedding = nn.functional.one_hot(torch.LongTensor([a]), ActionController(b).get_action_space())
+        hl.append(torch.cat([board_embedding, action_embedding], dim=1))
+    return torch.cat(hl, dim=0).unsqueeze(0)
 
 #
 # class NNT:
@@ -447,4 +455,4 @@ def gather_history(hist, c=3):
 #         hidden = self.encoder(e.unsqueeze(1)).squeeze(1)
 #         return self.fp(hidden), self.fv(hidden)
 #
-#
+

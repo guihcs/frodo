@@ -23,6 +23,6 @@ if path:
     print(len(path))
 print(f'Time: {time.time() - start}')
 
-for b, a in path:
-    print(b)
-    print(ActionController(b).explain_action(a))
+# for b, a in path:
+#     print(b)
+#     print(ActionController(b).explain_action(a))

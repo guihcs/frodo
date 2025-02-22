@@ -24,6 +24,12 @@ LONG_TODD_PUSH_LAYER_ENEMY = 0
 
 BLOCK_CELLS = {(0, 1), (1, 1), (0, 3), (1, 3)}
 
+TODD_WANDER_EVENT = 0
+REMOVE_MW_EVENT = 1
+SHORT_PUSH_EVENT = 2
+SHORT_PUSH_LONG_EVENT = 3
+CHASE_PUSH_EVENT = 4
+
 
 def tr(v):
     f, w = math.modf(v)
@@ -57,48 +63,37 @@ class Board3:
             self.cooldowns = [0, 0]
             self.mw: set = set()
             self.current_time = 0
-            self.events = [(3000, 'todd')]
+            self.events = [(3000, TODD_WANDER_EVENT)]
             self.walk_time = walk_time
 
     def push_enemy(self, y, x):
-        py, px = self.get_player_position()
         ey, ex = self.get_enemy_position()
+        self.push(ey, ex, y, x, self.current_enemy)
+
+    def push_todd(self, y, x):
+        ty, tx = self.get_todd_position()
+        self.push(ty, tx, y, x, self.todd)
+
+    def push(self, ey, ex, y, x, enemy):
+        py, px = self.get_player_position()
+
         if sqr_distance(py, px, ey, ex) > 2:
             self.reset_push()
             path = self.shortest_path(py, px, ey, ex)
             if not path:
                 return
             heappush(self.events, (
-                self.current_time + self.walk_time, 'chase_push', self.current_time, self.current_player, path,
-                self.current_enemy,
+                self.current_time + self.walk_time, CHASE_PUSH_EVENT, self.current_time, self.current_player, path,
+                enemy,
                 y,
                 x))
         else:
 
             for e in self.events:
-                if e[1] == 'short_push_l' and e[0] - self.current_time < 1000:
+                if e[1] == SHORT_PUSH_LONG_EVENT and e[0] - self.current_time < 1000:
                     return
-            self.clear_short_push({'short_push'})
-            heappush(self.events, (self.current_time + 1000, 'short_push', self.current_enemy, y, x))
-
-    def push_todd(self, y, x):
-        py, px = self.get_player_position()
-        ty, tx = self.get_todd_position()
-        if sqr_distance(py, px, ty, tx) > 2:
-            self.reset_push()
-            path = self.shortest_path(py, px, ty, tx)
-            if not path:
-                return
-            heappush(self.events, (
-                self.current_time + self.walk_time, 'chase_push', self.current_time, self.current_player, path,
-                self.todd, y,
-                x))
-        else:
-            for e in self.events:
-                if e[1] == 'short_push_l' and e[0] - self.current_time < 1000:
-                    return
-            self.clear_short_push({'short_push'})
-            heappush(self.events, (self.current_time + 1000, 'short_push', self.todd, y, x))
+            self.clear_short_push({SHORT_PUSH_EVENT})
+            heappush(self.events, (self.current_time + 1000, SHORT_PUSH_EVENT, enemy, y, x))
 
     def player_throw_mw(self, y, x):
         self.reset_push()
@@ -114,7 +109,7 @@ class Board3:
         if not self.can_throw_mw(py, px, y, x):
             return
         self.mw.add((y, x))
-        heappush(self.events, (self.current_time + 20000, 'mw', y, x))
+        heappush(self.events, (self.current_time + 20000, REMOVE_MW_EVENT, y, x))
         self.set_player_cooldown(self.current_time + 2000)
 
     def add_mw(self, y, x):
@@ -124,7 +119,7 @@ class Board3:
             return
 
         self.mw.add((y, x))
-        heappush(self.events, (self.current_time + 20000, 'mw', y, x))
+        heappush(self.events, (self.current_time + 20000, REMOVE_MW_EVENT, y, x))
 
     def get_player_cooldown(self):
         return self.cooldowns[self.current_player]
@@ -135,11 +130,14 @@ class Board3:
     def is_cell_empty(self, y: int, x: int):
         cell = (y, x)
 
-        return cell != self.get_todd_position() and \
-            cell != self.get_player_position() and \
-            cell != self.get_enemy_position() and \
-            cell not in self.mw and \
-            cell not in BLOCK_CELLS
+        if self.players_positions[0] == cell or \
+                self.players_positions[1] == cell or \
+                self.players_positions[2] == cell or \
+                cell in self.mw or \
+                cell in BLOCK_CELLS:
+            return False
+
+        return True
 
     def get_todd_position(self):
         return self.players_positions[self.todd]
@@ -155,7 +153,7 @@ class Board3:
 
     def clear_short_push(self, events=None):
         if events is None:
-            events = {'short_push', 'short_push_l'}
+            events = {SHORT_PUSH_EVENT, SHORT_PUSH_LONG_EVENT}
         for e in self.events:
             if e[1] in events:
                 self.events.remove(e)
@@ -164,7 +162,7 @@ class Board3:
 
     def clear_long_push(self):
         for e in self.events:
-            if e[1] == 'chase_push':
+            if e[1] == CHASE_PUSH_EVENT:
                 self.events.remove(e)
                 heapify(self.events)
                 break
@@ -316,7 +314,7 @@ class Board3:
 
         return True
 
-    def shortest_path(self, y1: int, x1: int, y2: int, x2: int, max_steps=100) -> list[tuple[int, int]]:
+    def shortest_path(self, y1: int, x1: int, y2: int, x2: int, max_steps=50) -> list[tuple[int, int]]:
         start, end = (y1, x1), (y2, x2)
         queue = []
         heappush(queue, (0, 0, y1, x1))
@@ -351,11 +349,11 @@ class Board3:
 
     def copy(self):
         new_board = Board3(blank=True)
-        new_board.players_positions = copy.copy(self.players_positions)
+        new_board.players_positions = [self.players_positions[0], self.players_positions[1], self.players_positions[2]]
         new_board.current_player = self.current_player
         new_board.current_enemy = self.current_enemy
 
-        new_board.cooldowns = copy.copy(self.cooldowns)
+        new_board.cooldowns = [self.cooldowns[0], self.cooldowns[1]]
 
         new_board.mw = copy.copy(self.mw)
 
@@ -370,25 +368,25 @@ class Board3:
     def swap_enemy(self):
         self.current_player, self.current_enemy = self.current_enemy, self.current_player
 
-    def step(self, time_step=200, walk_time=200):
+    def step(self, time_step=200):
         self.current_time += time_step
         while len(self.events) > 0 and self.events[0][0] <= self.current_time:
             _, event, *args = heappop(self.events)
-            if event == 'mw':
+            if event == REMOVE_MW_EVENT:
                 self.mw.remove((args[0], args[1]))
-            elif event == 'todd':
+            elif event == TODD_WANDER_EVENT:
                 moves = self.get_todd_available_moves()
                 if moves:
-                    heappush(self.events, (self.current_time + 3000, 'todd'))
+                    heappush(self.events, (self.current_time + 3000, TODD_WANDER_EVENT))
                     am = random.choice(moves)
                     self.move_todd(*am)
-            elif event == 'short_push' or event == 'short_push_l':
+            elif event == SHORT_PUSH_EVENT or event == SHORT_PUSH_LONG_EVENT:
                 ey, ex = self.players_positions[args[0]]
                 py, px = args[1], args[2]
                 if is_adjacent(ey, ex, py, px) and self.can_move(py, px):
                     self.move_p(*args)
 
-            elif event == 'chase_push':
+            elif event == CHASE_PUSH_EVENT:
                 start_time, current_player, path, current_enemy, py, px = args
 
                 if not path:
@@ -408,10 +406,10 @@ class Board3:
                 if is_adjacent(*self.players_positions[current_player], *self.players_positions[current_enemy]):
                     dif = 1600 - (self.current_time - start_time)
                     heappush(self.events, (
-                        self.current_time + dif, 'short_push_l', current_enemy, py, px))
+                        self.current_time + dif, SHORT_PUSH_LONG_EVENT, current_enemy, py, px))
                 else:
                     heappush(self.events, (
-                        self.current_time + self.walk_time, 'chase_push', start_time, current_player, path,
+                        self.current_time + self.walk_time, CHASE_PUSH_EVENT, start_time, current_player, path,
                         current_enemy, py, px))
 
     def __str__(self):
@@ -440,13 +438,13 @@ class Board3:
 
         long_push = self.get_long_push_events()
         if long_push is not None:
-            if long_push[1] == 'short_push_l':
+            if long_push[1] == SHORT_PUSH_LONG_EVENT:
                 y, x = long_push[3], long_push[4]
                 if long_push[2] == 2:
                     rm[y][x] = colored('O', 'light_green')
                 else:
                     rm[y][x] = colored('O', 'light_magenta')
-            elif long_push[1] == 'chase_push':
+            elif long_push[1] == CHASE_PUSH_EVENT:
                 y, x = long_push[6], long_push[7]
                 if long_push[5] == 2:
                     rm[y][x] = colored('O', 'light_green')
@@ -457,13 +455,13 @@ class Board3:
 
     def get_short_push_events(self):
         for e in self.events:
-            if e[1] == 'short_push':
+            if e[1] == SHORT_PUSH_EVENT:
                 return e
         return None
 
     def get_long_push_events(self):
         for e in self.events:
-            if e[1] == 'short_push_l' or e[1] == 'chase_push':
+            if e[1] == SHORT_PUSH_LONG_EVENT or e[1] == CHASE_PUSH_EVENT:
                 return e
         return None
 
@@ -505,13 +503,16 @@ class Board3:
         return all(conditions)
 
     def __hash__(self):
-        strs = [
-            str(self.players_positions),
-            str(self.current_player),
-            str(self.current_enemy),
-            str(self.cooldowns),
-            str(self.mw),
-            str(self.current_time),
-            str(self.events),
-        ]
-        return hash(''.join(strs))
+        strs = (
+            self.players_positions[0],
+            self.players_positions[1],
+            self.players_positions[2],
+            self.current_player,
+            self.current_enemy,
+            self.cooldowns[0],
+            self.cooldowns[1],
+            frozenset(self.mw),
+            self.current_time,
+            str(self.events)
+        )
+        return hash(strs)
