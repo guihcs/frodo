@@ -22,7 +22,7 @@ path = search(board, max_iterations=100000, time_step=1000)
 if path:
     print(len(path))
 print(f'Time: {time.time() - start}')
-
+print(ActionController.get_action_space())
 # for b, a in path:
 #     print(b)
 #     print(ActionController(b).explain_action(a))

@@ -32,7 +32,7 @@ for b, a in [(b, 0), (b, 0)]:
 hl = torch.cat(hl, dim=0).unsqueeze(0)
 
 fp = FP(x.shape[1], ActionController(b).get_action_space(), hl.shape[-1])
-fp.load_state_dict(torch.load('models/fp.pth', map_location=torch.device('cpu')))
+fp.load_state_dict(torch.load('models/fp.pth', map_location=torch.device('cpu')), strict=False)
 fp.eval()
 # agent = Agent(Board().to_tensor().shape[0], 60, Board().get_total_actions(), max_len=board_stack, nhead=4, num_layers=1)
 # agent.load_state_dict(torch.load('models/g200.pt'))
@@ -54,7 +54,7 @@ def get_action(data: dict):
     be = to_emb(b)
     me = emb_mem(history)
     with torch.no_grad():
-        o = fp(be, me)
+        o, _ = fp(be, me)
         action = torch.argmax(o).item()
     # bc = list(itertools.batched(board_data, 4))
     # board = ActionController.board_from_data(bc, history, time_step=1000)
