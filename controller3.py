@@ -135,3 +135,4 @@ class ActionController:
     @staticmethod
     def get_todd_push_range():
         return 1 + len(MOVE_DIRECTIONS) + len(PUSH_CELLS), 1 + len(MOVE_DIRECTIONS) + len(PUSH_CELLS) + len(TODD_PUSH_CELLS)
+

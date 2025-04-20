@@ -16,10 +16,19 @@ def to_emb(board: Board3):
     for (y, x) in board.mw:
         mws[y * 4 + x] = 1
 
-    pe = torch.Tensor([[py, px, ey, ex, ty, tx]]) / 3
+    pe = torch.cat([
+        nn.functional.one_hot(torch.LongTensor([py]), num_classes=4),
+        nn.functional.one_hot(torch.LongTensor([px]), num_classes=4),
+        nn.functional.one_hot(torch.LongTensor([ey]), num_classes=4),
+        nn.functional.one_hot(torch.LongTensor([ex]), num_classes=4),
+        nn.functional.one_hot(torch.LongTensor([ty]), num_classes=4),
+        nn.functional.one_hot(torch.LongTensor([tx]), num_classes=4)
+      ], dim=0)
+
     mwe = torch.Tensor([mws])
 
-    return torch.cat([pe, mwe], dim=1)
+
+    return torch.cat([pe.flatten().unsqueeze(0).float(), mwe], dim=1)
 
 def emb_mem(mem, nc=2):
     fe = []
