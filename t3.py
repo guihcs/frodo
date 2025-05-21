@@ -3,6 +3,8 @@ from controller3 import ActionController
 
 import random
 
+import time
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -50,6 +52,7 @@ def gen_init_board():
 
 m = {}
 
+st = time.time()
 
 e = 1.0
 for i in tqdm(range(2000)):
@@ -92,4 +95,7 @@ for i in tqdm(range(2000)):
         accr = r + 0.85 * accr
         m[b][a] += 0.1 * (accr - m[b][a])
 
+
+
 print(len(m))
+print(f'Time: {time.time() - st}')

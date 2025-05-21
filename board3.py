@@ -3,6 +3,7 @@ from termcolor import colored
 import random
 from heapq import heappush, heappop, heapify
 import math
+import numpy as np
 
 tod_cells = [(1, 2), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)]
 empty_cells = [(0, 0), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1), (2, 2), (2, 3), (3, 0), (3, 1), (3, 2), (3, 3)]
@@ -72,6 +73,105 @@ class EventQueue:
         return iter(self.events)
 
 
+def get_p_i(i):
+    if i == 0:
+        return None
+
+    return math.ceil(i / 2) - 1
+
+class VPQ:
+
+    def __init__(self):
+        self.k = np.array([], dtype=np.int32)
+        self.v = []
+
+
+    def _swap(self, i, j):
+        self.k[i], self.k[j] = self.k[j], self.k[i]
+        self.v[i], self.v[j] = self.v[j], self.v[i]
+
+    def _sink_up(self, i):
+        if i == 0:
+            return
+
+        p = get_p_i(i)
+        if self.k[p] > self.k[i]:
+            self._swap(p, i)
+            self._sink_up(p)
+
+    def push(self, e):
+        v = e[0]
+        p = e[1:]
+        i = len(self.k)
+        self.k = np.append(self.k, v)
+        self.v.append(p)
+        self._sink_up(i)
+
+
+    def _sink_down(self, i):
+
+        c1 = i * 2 + 1
+        c2 = i * 2 + 2
+
+        if c1 < len(self.k) and self.k[c1] < self.k[i]:
+            if c2 < len(self.k) and self.k[c2] < self.k[c1]:
+                self._swap(i, c2)
+                self._sink_down(c2)
+            else:
+                self._swap(i, c1)
+                self._sink_down(c1)
+        elif c2 < len(self.k) and self.k[c2] < self.k[i] and self.k[c2] < self.k[c1]:
+            if c1 < len(self.k) and self.k[c1] < self.k[c2]:
+                self._swap(i, c1)
+                self._sink_down(c1)
+            else:
+                self._swap(i, c2)
+                self._sink_down(c2)
+
+    def pop(self):
+
+        if len(self.k) == 0:
+            return None
+        if len(self.k) == 1:
+            k = self.k[0]
+            self.k = np.delete(self.k, 0)
+            return k, self.v.pop(0)
+
+        self._swap(0, len(self.k) - 1)
+
+        fv = self.k[-1]
+        self.k = np.delete(self.k, -1)
+        fq = self.v.pop()
+        self._sink_down(0)
+        return fv, fq
+
+    def remove(self, e):
+        i = self.v.index(e[1])
+        self._swap(i, len(self.k) - 1)
+        self.k = np.delete(self.k, -1)
+        self.v.pop()
+        self._sink_down(i)
+
+    def peek(self):
+        return self.k[0], self.v[0]
+
+    def decrease_all(self, v = 0):
+        self.k -= v
+
+
+    def clone(self):
+        vq = VPQ()
+        vq.k = self.k.copy()
+        vq.v = copy.deepcopy(self.v)
+        return vq
+
+    def __len__(self):
+        return len(self.k)
+
+    def __iter__(self):
+        return zip(self.k, self.v)
+
+
 class Board3:
 
     def __init__(self, blank=False, walk_frodo=True, walk_time=200):
@@ -88,7 +188,7 @@ class Board3:
             self.cooldowns = [0, 0]
             self.mw: set = set()
             self.current_time = 0
-            self.ev = EventQueue()
+            self.ev = VPQ()
             if walk_frodo:
                 ev = (3000, TODD_WANDER_EVENT)
                 self.ev.push(ev)
@@ -189,13 +289,13 @@ class Board3:
         if events is None:
             events = {SHORT_PUSH_EVENT, SHORT_PUSH_LONG_EVENT}
         for e in self.ev:
-            if e[1] in events:
+            if e[1][0] in events:
                 self.ev.remove(e)
                 break
 
     def clear_long_push(self):
         for e in self.ev:
-            if e[1] == CHASE_PUSH_EVENT:
+            if e[1][0] == CHASE_PUSH_EVENT:
                 self.ev.remove(e)
                 break
 
@@ -402,7 +502,7 @@ class Board3:
     def step(self, time_step=200):
         self.current_time += time_step
         while len(self.ev) > 0 and self.ev.peek()[0] <= self.current_time:
-            _, event, *args = self.ev.pop()
+            _, (event, *args) = self.ev.pop()
             if event == REMOVE_MW_EVENT:
                 self.mw.remove((args[0], args[1]))
             elif event == TODD_WANDER_EVENT:
@@ -529,7 +629,7 @@ class Board3:
 
 
     def get_relative_events(self):
-        return [(e[0] - self.current_time, *e[1:]) for e in self.ev]
+        return zip(self.ev.k - self.current_time, self.ev.v)
 
     def __eq__(self, other):
         if not isinstance(other, Board3):
@@ -542,7 +642,8 @@ class Board3:
             self.get_relative_cooldown(0) == other.get_relative_cooldown(0),
             self.get_relative_cooldown(1) == other.get_relative_cooldown(1),
             self.mw == other.mw,
-            self.get_relative_events() == other.get_relative_events(),
+            (self.ev.k - self.current_time == other.ev.k - other.current_time).all(),
+            self.ev.v == other.ev.v,
         ]
         return all(conditions)
 
@@ -556,7 +657,14 @@ class Board3:
             self.get_relative_cooldown(0),
             self.get_relative_cooldown(1),
             frozenset(self.mw),
-            str(self.get_relative_events())
+            str(self.ev.v)
         )
 
-        return hash(strs)
+        if len(self.ev.k) > 0:
+            k_hash = hash(bytes(self.ev.k - self.current_time))
+        else:
+            k_hash = 0
+
+
+
+        return hash(strs) ^ k_hash

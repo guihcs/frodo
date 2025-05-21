@@ -337,7 +337,7 @@ class Board3TestCase(unittest.TestCase):
         b2 = Board3()
         b2.players_positions = [(2, 1), (0, 0), (3, 3)]
         b2.current_time = 5000
-        b2.ev.events[0] = (8000, 0)
+        b2.ev.k[0] = 8000
         b1.player_throw_mw(2, 1)
         b2.player_throw_mw(2, 1)
 
@@ -349,9 +349,23 @@ class Board3TestCase(unittest.TestCase):
         b2 = Board3()
         b2.players_positions = [(2, 1), (1, 0), (3, 3)]
         b2.current_time = 5000
-        b2.ev.events[0] = (8000, 0)
+        b2.ev.k[0] = 8000
         b1.push_enemy(0, 0)
         b2.push_enemy(0, 0)
 
         self.assertEqual(hash(b1), hash(b2))
         self.assertEqual(b1, b2)
+
+        b1 = Board3()
+        b1.players_positions = [(2, 1), (1, 0), (3, 3)]
+        b2 = Board3()
+        b2.players_positions = [(2, 1), (1, 0), (3, 3)]
+        b2.current_time = 5000
+        b2.ev.k[0] = 8000
+        b1.push_enemy(0, 0)
+        b2.push_enemy(0, 0)
+
+        b2.step(200)
+
+        self.assertNotEqual(hash(b1), hash(b2))
+        self.assertNotEqual(b1, b2)

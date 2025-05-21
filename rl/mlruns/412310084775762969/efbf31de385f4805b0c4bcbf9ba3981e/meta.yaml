@@ -1,0 +1,15 @@
+artifact_uri: file:///home/guilherme/PycharmProjects/todd/rl/mlruns/412310084775762969/efbf31de385f4805b0c4bcbf9ba3981e/artifacts
+end_time: 1746577320313
+entry_point_name: ''
+experiment_id: '412310084775762969'
+lifecycle_stage: active
+run_id: efbf31de385f4805b0c4bcbf9ba3981e
+run_name: bold-lamb-758
+run_uuid: efbf31de385f4805b0c4bcbf9ba3981e
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1746577320302
+status: 3
+tags: []
+user_id: guilherme

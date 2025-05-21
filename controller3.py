@@ -42,9 +42,9 @@ class ActionController:
 
     def is_block(self):
         c1 = self.board.get_player_position() != (0, 0) and self.board.get_enemy_position() != (0, 0) and (
-        1, 0) in self.board.mw
+            1, 0) in self.board.mw
         c2 = self.board.get_player_position() != (0, 2) and self.board.get_enemy_position() != (0, 2) and (
-        1, 2) in self.board.mw
+            1, 2) in self.board.mw
         return c1 or c2
 
     def move(self, dy, dx):
@@ -134,5 +134,28 @@ class ActionController:
 
     @staticmethod
     def get_todd_push_range():
-        return 1 + len(MOVE_DIRECTIONS) + len(PUSH_CELLS), 1 + len(MOVE_DIRECTIONS) + len(PUSH_CELLS) + len(TODD_PUSH_CELLS)
+        return 1 + len(MOVE_DIRECTIONS) + len(PUSH_CELLS), 1 + len(MOVE_DIRECTIONS) + len(PUSH_CELLS) + len(
+            TODD_PUSH_CELLS)
 
+    @staticmethod
+    def step(b, ra, time_step=1600):
+        bc = b.copy()
+        ac = ActionController(bc)
+
+        ac.execute_action(ra)
+        bc.step(time_step)
+
+        r = 0
+        end = False
+
+        if ac.is_win():
+            r = 1
+            end = True
+        elif ac.is_lose():
+            r = -1
+            end = True
+        elif ac.is_block():
+            r = -1
+            end = True
+
+        return bc, r, end
